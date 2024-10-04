@@ -1,0 +1,76 @@
+name: Build and Release Maven Application
+
+on:
+  push:
+    branches:
+      - master
+      - '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build with Maven
+        run: mvn clean package
+
+      - name: Archive JAR
+        if: github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@v3
+        with:
+          name: keycloak-discord-provider
+          path: target/*.jar
+
+  release:
+    if: github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Extract version from pom.xml
+        id: extract_version
+        run: |
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "Project version: $VERSION"
+          echo "::set-output name=VERSION::$VERSION"
+
+      - name: Download JAR
+        uses: actions/download-artifact@v3
+        with:
+          name: keycloak-discord-provider
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.extract_version.outputs.VERSION }}
+          name: Release ${{ steps.extract_version.outputs.VERSION }}
+          body: "Keycloak Social Login extension for Discord version ${{ steps.extract_version.outputs.VERSION }} "
+          draft: false
+          prerelease: false
+          files: target/*.jar
