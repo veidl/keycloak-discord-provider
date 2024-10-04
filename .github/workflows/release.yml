@@ -66,11 +66,21 @@ jobs:
           name: keycloak-discord-provider
 
       - name: Create GitHub Release
-        uses: ncipollo/release-action@v1
+        id: create_release
+        uses: actions/create-release@v1
         with:
-          tag: ${{ steps.extract_version.outputs.VERSION }}
-          name: Release ${{ steps.extract_version.outputs.VERSION }}
-          body: "Keycloak Social Login extension for Discord version ${{ steps.extract_version.outputs.VERSION }} "
+          tag_name: ${{ steps.extract_version.outputs.VERSION }}
+          release_name: Release ${{ steps.extract_version.outputs.VERSION }}
+          body: "Release version ${{ steps.extract_version.outputs.VERSION }} for the Keycloak Discord Provider"
           draft: false
           prerelease: false
-          files: target/*.jar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: target/*.jar
+          asset_name: keycloakd-discord-provider-${{ steps.extract_version.outputs.VERSION }}.jar
+          asset_content_type: application/java-archive
