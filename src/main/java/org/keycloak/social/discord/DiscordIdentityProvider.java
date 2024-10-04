@@ -2,72 +2,49 @@ package org.keycloak.social.discord;
 
 
 import com.fasterxml.jackson.databind.JsonNode;
-import jakarta.ws.rs.core.Response;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.keycloak.OAuthErrorException;
-import org.keycloak.broker.oidc.OIDCIdentityProvider;
-import org.keycloak.broker.oidc.OIDCIdentityProviderConfig;
+import jakarta.ws.rs.core.UriBuilder;
+import org.keycloak.broker.oidc.AbstractOAuth2IdentityProvider;
 import org.keycloak.broker.oidc.mappers.AbstractJsonUserAttributeMapper;
+import org.keycloak.broker.provider.AuthenticationRequest;
 import org.keycloak.broker.provider.BrokeredIdentityContext;
 import org.keycloak.broker.provider.IdentityBrokerException;
 import org.keycloak.broker.provider.util.SimpleHttp;
 import org.keycloak.broker.social.SocialIdentityProvider;
-import org.keycloak.events.Details;
-import org.keycloak.events.Errors;
 import org.keycloak.events.EventBuilder;
 import org.keycloak.models.KeycloakSession;
-import org.keycloak.services.ErrorResponseException;
 
-public class DiscordIdentityProvider extends OIDCIdentityProvider implements SocialIdentityProvider<OIDCIdentityProviderConfig> {
+public class DiscordIdentityProvider extends AbstractOAuth2IdentityProvider<DiscordIdentityProviderConfig>
+        implements SocialIdentityProvider<DiscordIdentityProviderConfig> {
 
     public static final String AUTH_URL = "https://discord.com/oauth2/authorize";
     public static final String TOKEN_URL = "https://discord.com/api/oauth2/token";
     public static final String PROFILE_URL = "https://discord.com/api/users/@me";
-    private static final String ISSUER = "https://discord.com";
-    private static final String DEFAULT_SCOPES = "identify email";
-    private static final Log log = LogFactory.getLog(DiscordIdentityProvider.class);
+    public static final String DEFAULT_SCOPES = "identify email";
 
-    public DiscordIdentityProvider(KeycloakSession session, OIDCIdentityProviderConfig config) {
+    public DiscordIdentityProvider(KeycloakSession session, DiscordIdentityProviderConfig config) {
         super(session, config);
 
         config.setAuthorizationUrl(AUTH_URL);
         config.setTokenUrl(TOKEN_URL);
         config.setUserInfoUrl(PROFILE_URL);
+
     }
 
     @Override
     protected BrokeredIdentityContext extractIdentityFromProfile(EventBuilder event, JsonNode userInfo) {
-        final var id = getJsonProperty(userInfo, "id");
-        log.info("id: " + id);
-        if (id == null) {
-            event.detail(Details.REASON, "id claim is null from user info json");
-            event.error(Errors.INVALID_TOKEN);
-            throw new ErrorResponseException(OAuthErrorException.INVALID_TOKEN, "invalid token", Response.Status.BAD_REQUEST);
-        }
-
-        BrokeredIdentityContext identity = new BrokeredIdentityContext(id, getConfig());
+        BrokeredIdentityContext user = new BrokeredIdentityContext(getJsonProperty(userInfo, "id"), getConfig());
 
         final var preferredUsername = getJsonProperty(userInfo, "username");
         // the user_name is not unique, so we need to append the discriminator to make it unique
-        final var uniqueUserName = preferredUsername + "#" + getJsonProperty(userInfo, "discriminator");
-        String email = getJsonProperty(userInfo, "email");
+        final var uniqueUserName = preferredUsername + "_" + getJsonProperty(userInfo, "discriminator");
+        final var email = getJsonProperty(userInfo, "email");
 
-        log.info("preferredUsername: " + preferredUsername);
-        log.info("uniqueUserName: " + uniqueUserName);
-        log.info("email: " + email);
+        user.setEmail(email);
+        user.setUsername(uniqueUserName);
+        user.setIdp(this);
 
-        identity.setId(id);
-        identity.setEmail(email);
-        identity.setBrokerUserId(getConfig().getAlias() + "." + id);
-        identity.setUsername(uniqueUserName);
-        identity.setIdp(this);
-
-        AbstractJsonUserAttributeMapper.storeUserProfileForMapper(identity, userInfo, getConfig().getAlias());
-
-        log.info("identity: " + identity);
-
-        return identity;
+        AbstractJsonUserAttributeMapper.storeUserProfileForMapper(user, userInfo, getConfig().getAlias());
+        return user;
     }
 
     @Override
@@ -81,6 +58,22 @@ public class DiscordIdentityProvider extends OIDCIdentityProvider implements Soc
         } catch (Exception e) {
             throw new IdentityBrokerException("Could not obtain user profile from discord.", e);
         }
+    }
+
+    @Override
+    protected UriBuilder createAuthorizationUrl(AuthenticationRequest request) {
+        final var preparedUri = super.createAuthorizationUrl(request);
+
+        if (getConfig().getBotPermissions() != null) {
+            preparedUri.queryParam("permissions", getConfig().getBotPermissions());
+        }
+
+        return preparedUri;
+    }
+
+    @Override
+    protected boolean supportsExternalExchange() {
+        return true;
     }
 
     @Override

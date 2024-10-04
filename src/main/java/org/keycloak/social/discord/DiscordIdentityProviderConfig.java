@@ -1,9 +1,9 @@
 package org.keycloak.social.discord;
 
-import org.keycloak.broker.oidc.OIDCIdentityProviderConfig;
+import org.keycloak.broker.oidc.OAuth2IdentityProviderConfig;
 import org.keycloak.models.IdentityProviderModel;
 
-public class DiscordIdentityProviderConfig extends OIDCIdentityProviderConfig {
+public class DiscordIdentityProviderConfig extends OAuth2IdentityProviderConfig {
 
     public DiscordIdentityProviderConfig(IdentityProviderModel model) {
         super(model);
@@ -11,4 +11,9 @@ public class DiscordIdentityProviderConfig extends OIDCIdentityProviderConfig {
 
     public DiscordIdentityProviderConfig() {
     }
+
+    public String getBotPermissions() {
+        return getConfig().get("botPermissions");
+    }
+
 }
