@@ -3,7 +3,7 @@ name: Build and Release Maven Application
 on:
   push:
     branches:
-      - main
+      - master
       - '**'
 
 jobs:
@@ -32,14 +32,14 @@ jobs:
         run: mvn clean package
 
       - name: Archive JAR
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/master'
         uses: actions/upload-artifact@v3
         with:
           name: keycloak-discord-provider
           path: target/*.jar
 
   release:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
     needs: build
     runs-on: ubuntu-latest
 
