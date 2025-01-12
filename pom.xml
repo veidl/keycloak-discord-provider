@@ -8,12 +8,12 @@
 
     <groupId>org.keycloak.extensions</groupId>
     <artifactId>keycloak-discord-provider</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>jar</packaging>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <version.keycloak>25.0.0</version.keycloak>
+        <version.keycloak>26.0.7</version.keycloak>
     </properties>
 
     <dependencies>
